@@ -6,11 +6,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.thbs.progress_tracker.DTO.CourseOverallProgressDTO;
+import com.thbs.progress_tracker.DTO.DeleteProgressOfUsersDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicResourceOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.UserOverallProgressDTO;
 import com.thbs.progress_tracker.Entity.Progress;
 import com.thbs.progress_tracker.Service.UserProgressService;
+
+import io.swagger.v3.oas.annotations.Operation;
 
 import java.util.Optional;
 
@@ -22,6 +25,7 @@ public class UserProgressController {
     private UserProgressService progressService;
 
     @PostMapping("/update")
+    @Operation(summary = "handles the updation and creation of the progress records")
     public void updateProgress(@RequestParam Long userId,
             @RequestParam Long batchId,
             @RequestParam Long courseId,
@@ -43,6 +47,7 @@ public class UserProgressController {
     }
 
     @GetMapping("/user/{userId}/batch/{batchId}")
+    @Operation(summary = "gives the overall progress of the user")
     public ResponseEntity<UserOverallProgressDTO> getUserOverallProgress(@PathVariable Long userId,
             @PathVariable Long batchId) {
         double batchOverallProgress = progressService.calculateUserOverallProgress(userId, batchId);
@@ -51,6 +56,7 @@ public class UserProgressController {
     }
 
     @GetMapping("/user/{userId}/batch/{batchId}/course/{courseId}")
+    @Operation(summary = "gives the overall progress of the user in a particular course")
     public ResponseEntity<CourseOverallProgressDTO> getUserCourseOverallProgress(@PathVariable Long userId,
             @PathVariable Long batchId, @PathVariable Long courseId) {
         double courseOverallProgress = progressService.calculateUserCourseOverallProgress(userId, batchId, courseId);
@@ -62,6 +68,7 @@ public class UserProgressController {
 
     // endpoint is changed new pathVariable add courseId
     @GetMapping("/user/{userId}/batch/{batchId}/course/{courseId}/topic/{topicId}")
+    @Operation(summary = "gives the overall progress of the user in a particular topic")
     public ResponseEntity<UserCourseTopicOverallProgressDTO> getUserCourseTopicOverallProgress(
             @PathVariable Long userId,
             @PathVariable Long batchId, @PathVariable Long courseId, @PathVariable Long topicId) {
@@ -76,15 +83,26 @@ public class UserProgressController {
 
     // endpoint is changed new pathVariable add courseId and topicId required
     @GetMapping("/user/{userId}/batch/{batchId}/course/{courseId}/topic/{topicId}/resource/{resourceId}")
+    @Operation(summary = "gives the overall progress of the user in a particular resource")
     public ResponseEntity<UserCourseTopicResourceOverallProgressDTO> getUserCourseTopicResourceOverallProgress(
             @PathVariable Long userId,
-            @PathVariable Long batchId, @PathVariable Long courseId, @PathVariable Long topicId, @PathVariable Long resourceId) {
-        double resourceOverallProgress = progressService.calculateUserCourseTopicResourceOverallProgress(userId, batchId, courseId,
-                topicId,resourceId);
-        UserCourseTopicResourceOverallProgressDTO response = new UserCourseTopicResourceOverallProgressDTO(userId, batchId, courseId,
-                topicId,resourceId,resourceOverallProgress);
+            @PathVariable Long batchId, @PathVariable Long courseId, @PathVariable Long topicId,
+            @PathVariable Long resourceId) {
+        double resourceOverallProgress = progressService.calculateUserCourseTopicResourceOverallProgress(userId,
+                batchId, courseId,
+                topicId, resourceId);
+        UserCourseTopicResourceOverallProgressDTO response = new UserCourseTopicResourceOverallProgressDTO(userId,
+                batchId, courseId,
+                topicId, resourceId, resourceOverallProgress);
 
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/delete-progress")
+    @Operation(summary = "handles the deletion of progress records if the user is removed from the batch")
+    public ResponseEntity<?> deleteProgressForUsers(@RequestBody DeleteProgressOfUsersDTO deleteUsers) {
+        progressService.deleteProgressOfUsers(deleteUsers.getUserIds(), deleteUsers.getBatchId());
+        return ResponseEntity.ok().build();
     }
 
 }

@@ -40,6 +40,7 @@ public class BatchProgressController {
     }
 
     @GetMapping("/{batchId}")
+    @Operation(summary  = "gives the overall batch progress")
     public ResponseEntity<BatchProgressDTO> calculateBatchProgress(@PathVariable int batchId) {
         BatchProgressDTO progress = batchProgressService.calculateBatchProgress(batchId);
         if (progress != null) {

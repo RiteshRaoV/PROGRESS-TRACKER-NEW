@@ -11,6 +11,7 @@ import com.thbs.progress_tracker.Entity.TopicProgress;
 import com.thbs.progress_tracker.Repository.ProgressRepository;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -230,4 +231,13 @@ public class UserProgressService {
         return resourceProgressOptional.get().getCompletionPercentage();
     }
 
+    public void deleteProgressOfUsers(List<Long> userIds, Long batchId) {
+        for(Long userId:userIds){
+            Progress progress = progressRepository.findByUserId(userId).get();
+            if (progress != null) {
+                progress.getBatches().removeIf(batch -> batch.getBatchId() == batchId);
+                progressRepository.save(progress);
+            }
+        }
+    }
 }
