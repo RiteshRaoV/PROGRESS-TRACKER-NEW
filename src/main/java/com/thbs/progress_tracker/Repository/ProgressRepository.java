@@ -12,5 +12,7 @@ public interface ProgressRepository extends MongoRepository<Progress, String> {
 
     List<Progress> findByUserIdIn(List<Long> userIds);
 
+    List<Progress> findByBatchesBatchId(Long batchId);
+
 }
 

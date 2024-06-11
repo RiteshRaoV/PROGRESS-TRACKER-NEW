@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.thbs.progress_tracker.Entity.Progress;
-import com.thbs.progress_tracker.Service.ProgressService;
+import com.thbs.progress_tracker.Service.UserProgressService;
 
 import java.util.Optional;
 
@@ -15,7 +15,7 @@ import java.util.Optional;
 public class UserProgressController {
 
     @Autowired
-    private ProgressService progressService;
+    private UserProgressService progressService;
 
     @PostMapping("/update")
     public void updateProgress(@RequestParam Long userId, 
