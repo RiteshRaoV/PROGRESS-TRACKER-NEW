@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 @Service
-public class ProgressService {
+public class UserProgressService {
 
     @Autowired
     private ProgressRepository progressRepository;
