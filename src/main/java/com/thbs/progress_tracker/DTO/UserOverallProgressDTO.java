@@ -1,6 +1,7 @@
 package com.thbs.progress_tracker.DTO;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,7 +10,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-
+@EqualsAndHashCode
 public class UserOverallProgressDTO {
     private Long userId;
     private Long batchId;
