@@ -233,15 +233,23 @@ public class UserProgressService {
 
     public void deleteProgressOfUsers(List<Long> userIds, Long batchId) {
         for (Long userId : userIds) {
-            Progress progress = progressRepository.findByUserId(userId).get();
-            if (progress != null) {
-                progress.getBatches().removeIf(batch -> batch.getBatchId() == batchId);
-                progressRepository.save(progress);
+            if(userId!=null){
+                Progress progress = progressRepository.findByUserId(userId).get();
+                if (progress != null) {
+                    progress.getBatches().removeIf(batch -> batch.getBatchId() == batchId);
+                    progressRepository.save(progress);
+                }
             }
         }
     }
 
     public void setProgressForNewUsers(List<Long> userIds, long batchId) {
+        List<Progress> progresses=progressRepository.findAll();
+        List<Long> existingUsers=new ArrayList<>();
+        for(Progress progress:progresses){
+            existingUsers.add(progress.getUserId());
+        }
+        userIds.removeAll(existingUsers);
         for (Long userId : userIds) {
             Progress progress = new Progress();
             progress.setUserId(userId);
