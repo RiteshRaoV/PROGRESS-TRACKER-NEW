@@ -29,7 +29,7 @@ import com.thbs.progress_tracker.Repository.ProgressRepository;
 public class BatchProgressService {
 
     @Value("${batchModule.uri}")
-    String batchModuleUri;
+    public String batchModuleUri;
 
     @Autowired
     private ProgressRepository progressRepository;

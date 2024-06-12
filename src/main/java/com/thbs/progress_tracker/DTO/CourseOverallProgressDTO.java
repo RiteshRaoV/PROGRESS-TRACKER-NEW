@@ -15,6 +15,6 @@ public class CourseOverallProgressDTO {
     private Long userId;
     private Long batchId;
     private Long courseId;
-    private double completionPercentage;
+    private double courseProgress;
 
 }
