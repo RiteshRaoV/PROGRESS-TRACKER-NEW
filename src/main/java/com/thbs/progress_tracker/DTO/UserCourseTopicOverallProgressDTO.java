@@ -14,5 +14,5 @@ public class UserCourseTopicOverallProgressDTO {
     private Long batchId;
     private Long courseId;
     private Long topicId;
-    private double completionPercentage;
+    private double topicProgress;
 }
