@@ -7,14 +7,18 @@ import org.springframework.web.bind.annotation.*;
 
 import com.thbs.progress_tracker.DTO.CourseOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.DeleteProgressOfUsersDTO;
+import com.thbs.progress_tracker.DTO.UpdateNewUsersFromBatchDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicResourceOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.UserOverallProgressDTO;
+import com.thbs.progress_tracker.Entity.BatchProgress;
 import com.thbs.progress_tracker.Entity.Progress;
+import com.thbs.progress_tracker.Repository.ProgressRepository;
 import com.thbs.progress_tracker.Service.UserProgressService;
 
 import io.swagger.v3.oas.annotations.Operation;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 @RestController
@@ -23,6 +27,9 @@ public class UserProgressController {
 
     @Autowired
     private UserProgressService progressService;
+
+    @Autowired
+    private ProgressRepository progressRepository;
 
     @PostMapping("/update")
     @Operation(summary = "handles the updation and creation of the progress records")
@@ -105,4 +112,9 @@ public class UserProgressController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/update-progress")
+    public ResponseEntity<?> createProgressForNewUsers(@RequestBody UpdateNewUsersFromBatchDTO newUsers) {
+        progressService.setProgressForNewUsers(newUsers.getUserIds(), newUsers.getBatchId());
+        return ResponseEntity.ok().build();
+    }
 }
