@@ -7,9 +7,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.thbs.progress_tracker.Config.RoundConfig;
 import com.thbs.progress_tracker.DTO.BatchCoursesDTO;
+import com.thbs.progress_tracker.DTO.BatchResourceDTO;
 import com.thbs.progress_tracker.DTO.BatchTopicDTO;
 import com.thbs.progress_tracker.DTO.BatchesDTO;
 import com.thbs.progress_tracker.DTO.LearningPlanDTO;
@@ -20,6 +22,7 @@ import com.thbs.progress_tracker.Entity.ResourceProgress;
 import com.thbs.progress_tracker.Entity.TopicProgress;
 import com.thbs.progress_tracker.Repository.ProgressRepository;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,6 +45,9 @@ public class UserProgressService {
 
     @Value("${learningPlanModule.url}")
     String learningPlanModuleUri;
+
+    @Value("${learningResourceModule.uri}")
+    String learningResourceModuleUri;
 
     public void updateProgress(Long userId, Long batchId, Long courseId, Long topicId, Long resourceId,
             double completionPercentage) {
@@ -263,6 +269,34 @@ public class UserProgressService {
                 }, batchId);
         LearningPlanDTO learningPlan = response.getBody();
 
+        List<Long> courseIds = learningPlan.getBatchCourses().stream()
+                .map(BatchCoursesDTO::getCourseId) 
+                .collect(Collectors.toList());
+
+        List<Long> topicIds = learningPlan.getBatchCourses().stream() 
+                .flatMap(batchCourse -> batchCourse.getTopic().stream()) 
+                .map(BatchTopicDTO::getTopicId) 
+                .collect(Collectors.toList());        
+        
+        String baseUrl = learningResourceModuleUri;
+
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl)
+                .queryParam("batchId", batchId);
+
+        for (Long courseId : courseIds) {
+            builder.queryParam("courseIds", courseId);
+        }
+
+        for (Long topicId : topicIds) {
+            builder.queryParam("topicIds", topicId);
+        }
+
+        URI learningResourceUri = builder.build().encode().toUri();
+
+        ResponseEntity<LearningPlanDTO> finalResponse = restTemplate.getForEntity(learningResourceUri, LearningPlanDTO.class);
+
+        LearningPlanDTO learningPlanWithResources = finalResponse.getBody();
+
         userIds.forEach(userId -> {
             Progress progress = userProgressMap.get(userId);
 
@@ -279,7 +313,7 @@ public class UserProgressService {
                 batchProgress.setOverallCompletionPercentage(0);
 
                 List<CourseProgress> courses = new ArrayList<>();
-                for (BatchCoursesDTO course : learningPlan.getBatchCourses()) {
+                for (BatchCoursesDTO course : learningPlanWithResources.getBatchCourses()) {
                     CourseProgress courseProgress = new CourseProgress();
                     courseProgress.setCourseId(course.getCourseId());
                     courseProgress.setCompletionPercentage(0);
@@ -289,8 +323,14 @@ public class UserProgressService {
                         TopicProgress topicProgress = new TopicProgress();
                         topicProgress.setTopicId(topic.getTopicId());
                         topicProgress.setCompletionPercentage(0);
-                        topicProgress.setResources(new ArrayList<>()); // to be added
-
+                        List<ResourceProgress> resources = new ArrayList<>();
+                        for (BatchResourceDTO resource:topic.getBatchResourses()){
+                            ResourceProgress resourceProgress = new ResourceProgress();
+                            resourceProgress.setResourceId(resource.getResourceId());
+                            resourceProgress.setCompletionPercentage(0);
+                            resources.add(resourceProgress);
+                        }
+                        topicProgress.setResources(resources); 
                         topics.add(topicProgress);
                     }
 
@@ -306,7 +346,7 @@ public class UserProgressService {
         });
     }
 
-    public LearningPlanDTO getBatchLearningPlan(long batchId){
+    public LearningPlanDTO getBatchLearningPlan(long batchId) {
         String uri = learningPlanModuleUri;
         ResponseEntity<LearningPlanDTO> response = restTemplate.exchange(uri, HttpMethod.GET, null,
                 new ParameterizedTypeReference<LearningPlanDTO>() {
