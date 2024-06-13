@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.thbs.progress_tracker.DTO.CourseOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.DeleteProgressOfUsersDTO;
+import com.thbs.progress_tracker.DTO.LearningPlanDTO;
 import com.thbs.progress_tracker.DTO.UpdateNewUsersFromBatchDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicOverallProgressDTO;
 import com.thbs.progress_tracker.DTO.UserCourseTopicResourceOverallProgressDTO;
@@ -111,4 +112,9 @@ public class UserProgressController {
         progressService.setProgressForNewUsers(newUsers.getUserIds(), newUsers.getBatchId());
         return ResponseEntity.ok().build();
     }
+
+    // @GetMapping("/learning-plan/{batchId}")
+    // private ResponseEntity<LearningPlanDTO> getBatchLearningPlan(@PathVariable long batchId){
+    //     return ResponseEntity.ok(progressService.getBatchLearningPlan(batchId));
+    // }
 }

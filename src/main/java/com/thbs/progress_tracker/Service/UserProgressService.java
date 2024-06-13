@@ -1,8 +1,17 @@
 package com.thbs.progress_tracker.Service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import com.thbs.progress_tracker.DTO.BatchCoursesDTO;
+import com.thbs.progress_tracker.DTO.BatchTopicDTO;
+import com.thbs.progress_tracker.DTO.BatchesDTO;
+import com.thbs.progress_tracker.DTO.LearningPlanDTO;
 import com.thbs.progress_tracker.Entity.BatchProgress;
 import com.thbs.progress_tracker.Entity.CourseProgress;
 import com.thbs.progress_tracker.Entity.Progress;
@@ -11,14 +20,24 @@ import com.thbs.progress_tracker.Entity.TopicProgress;
 import com.thbs.progress_tracker.Repository.ProgressRepository;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class UserProgressService {
 
     @Autowired
     private ProgressRepository progressRepository;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${learningPlanModule.url}")
+    String learningPlanModuleUri;
 
     public void updateProgress(Long userId, Long batchId, Long courseId, Long topicId, Long resourceId,
             double completionPercentage) {
@@ -232,37 +251,71 @@ public class UserProgressService {
     }
 
     public void deleteProgressOfUsers(List<Long> userIds, Long batchId) {
-        for (Long userId : userIds) {
-            if(userId!=null){
-                Progress progress = progressRepository.findByUserId(userId).get();
-                if (progress != null) {
-                    progress.getBatches().removeIf(batch -> batch.getBatchId() == batchId);
-                    progressRepository.save(progress);
-                }
-            }
-        }
+        List<Progress> progresses = progressRepository.findByUserIdIn(userIds);
+        progresses.forEach(progress -> progress.getBatches().removeIf(batch -> batch.getBatchId().equals(batchId)));
+        progressRepository.saveAll(progresses);
     }
 
     public void setProgressForNewUsers(List<Long> userIds, long batchId) {
-        List<Progress> progresses=progressRepository.findAll();
-        List<Long> existingUsers=new ArrayList<>();
-        for(Progress progress:progresses){
-            existingUsers.add(progress.getUserId());
-        }
-        userIds.removeAll(existingUsers);
-        for (Long userId : userIds) {
-            Progress progress = new Progress();
-            progress.setUserId(userId);
-            progress.setBatches(new ArrayList<>());
+        // Step 1: Retrieve existing progress for the users
+        List<Progress> existingProgresses = progressRepository.findByUserIdIn(userIds);
+        Map<Long, Progress> userProgressMap = existingProgresses.stream()
+                .collect(Collectors.toMap(Progress::getUserId, Function.identity()));
+
+        // Step 2: Identify users who do not have BatchProgress for the given batchId
+        List<Long> usersWithoutBatch = userIds.stream()
+                .filter(userId -> {
+                    Progress progress = userProgressMap.get(userId);
+                    return progress == null
+                            || progress.getBatches().stream().noneMatch(bp -> bp.getBatchId() == batchId);
+                })
+                .collect(Collectors.toList());
+
+        // Step 3: Fetch the learning plan for the batch
+        String uri = learningPlanModuleUri;
+        ResponseEntity<LearningPlanDTO> response = restTemplate.exchange(uri, HttpMethod.GET, null,
+                new ParameterizedTypeReference<LearningPlanDTO>() {
+                }, batchId);
+        LearningPlanDTO learningPlan = response.getBody();
+
+        // Step 4: Initialize progress for users who do not have the BatchProgress for
+        // the given batchId
+        usersWithoutBatch.forEach(userId -> {
+            Progress progress = userProgressMap.getOrDefault(userId, new Progress());
+            if (progress.getUserId() == null) {
+                progress.setUserId(userId);
+            }
 
             BatchProgress batchProgress = new BatchProgress();
             batchProgress.setBatchId(batchId);
-            batchProgress.setOverallCompletionPercentage(0); // Initialize overall progress to 0
-            batchProgress.setCourses(new ArrayList<>());
+            batchProgress.setOverallCompletionPercentage(0);
 
+            List<CourseProgress> courses = new ArrayList<>();
+            for (BatchCoursesDTO course : learningPlan.getBatchCourses()) {
+                CourseProgress courseProgress = new CourseProgress();
+                courseProgress.setCourseId(course.getCourseId());
+                courseProgress.setCompletionPercentage(0);
+
+                List<TopicProgress> topics = new ArrayList<>();
+                for (BatchTopicDTO topic : course.getTopic()) {
+                    TopicProgress topicProgress = new TopicProgress();
+                    topicProgress.setTopicId(topic.getTopicId());
+                    topicProgress.setCompletionPercentage(0);
+                    topicProgress.setResources(new ArrayList<>()); // Assuming resource progress initialization is not
+                                                                   // needed
+
+                    topics.add(topicProgress);
+                }
+
+                courseProgress.setTopics(topics);
+                courses.add(courseProgress);
+            }
+
+            batchProgress.setCourses(courses);
             progress.getBatches().add(batchProgress);
 
             progressRepository.save(progress);
-        }
+        });
     }
+
 }
