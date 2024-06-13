@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import com.thbs.progress_tracker.Config.RoundConfig;
 import com.thbs.progress_tracker.DTO.BatchCoursesDTO;
 import com.thbs.progress_tracker.DTO.BatchTopicDTO;
 import com.thbs.progress_tracker.DTO.BatchesDTO;
@@ -35,6 +36,9 @@ public class UserProgressService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    @Autowired
+    private RoundConfig roundConfig;
 
     @Value("${learningPlanModule.url}")
     String learningPlanModuleUri;
@@ -103,7 +107,7 @@ public class UserProgressService {
                     return newResourceProgress;
                 });
 
-        resourceProgress.setCompletionPercentage(completionPercentage);
+        resourceProgress.setCompletionPercentage(roundConfig.roundToTwoDecimalPlaces(completionPercentage));
     }
 
     private void updateTopicProgress(TopicProgress topicProgress) {
@@ -112,7 +116,7 @@ public class UserProgressService {
                 .average()
                 .orElse(0.0);
 
-        topicProgress.setCompletionPercentage(averageCompletion);
+        topicProgress.setCompletionPercentage(roundConfig.roundToTwoDecimalPlaces(averageCompletion));
     }
 
     private void updateCourseProgress(CourseProgress courseProgress) {
@@ -121,7 +125,7 @@ public class UserProgressService {
                 .average()
                 .orElse(0.0);
 
-        courseProgress.setCompletionPercentage(averageCompletion);
+        courseProgress.setCompletionPercentage(roundConfig.roundToTwoDecimalPlaces(averageCompletion));
     }
 
     private void updateOverallProgress(BatchProgress batchProgress) {
@@ -130,34 +134,26 @@ public class UserProgressService {
                 .average()
                 .orElse(0.0);
 
-        batchProgress.setOverallCompletionPercentage(averageCompletion);
+        batchProgress.setOverallCompletionPercentage(roundConfig.roundToTwoDecimalPlaces(averageCompletion));
     }
 
     public double calculateUserOverallProgress(Long userId, Long batchId) {
         Optional<Progress> optionalProgress = progressRepository.findByUserId(userId);
-
         if (optionalProgress.isEmpty()) {
             return 0;
         }
-
         Progress progress = optionalProgress.get();
-
         Optional<BatchProgress> batchProgressOptional = progress.getBatches().stream()
                 .filter(batch -> batch.getBatchId().equals(batchId))
                 .findFirst();
-
         if (batchProgressOptional.isEmpty()) {
             return 0;
         }
-
         BatchProgress batchProgress = batchProgressOptional.get();
-
         double totalCompletion = batchProgress.getCourses().stream()
                 .mapToDouble(CourseProgress::getCompletionPercentage)
                 .sum();
-
         int totalCourses = batchProgress.getCourses().size();
-
         return totalCourses > 0 ? totalCompletion / totalCourses : 0;
     }
 
@@ -257,62 +253,54 @@ public class UserProgressService {
     }
 
     public void setProgressForNewUsers(List<Long> userIds, long batchId) {
-        // Step 1: Retrieve existing progress for the users
         List<Progress> existingProgresses = progressRepository.findByUserIdIn(userIds);
         Map<Long, Progress> userProgressMap = existingProgresses.stream()
                 .collect(Collectors.toMap(Progress::getUserId, Function.identity()));
 
-        // Step 2: Identify users who do not have BatchProgress for the given batchId
-        List<Long> usersWithoutBatch = userIds.stream()
-                .filter(userId -> {
-                    Progress progress = userProgressMap.get(userId);
-                    return progress == null
-                            || progress.getBatches().stream().noneMatch(bp -> bp.getBatchId() == batchId);
-                })
-                .collect(Collectors.toList());
-
-        // Step 3: Fetch the learning plan for the batch
         String uri = learningPlanModuleUri;
         ResponseEntity<LearningPlanDTO> response = restTemplate.exchange(uri, HttpMethod.GET, null,
                 new ParameterizedTypeReference<LearningPlanDTO>() {
                 }, batchId);
         LearningPlanDTO learningPlan = response.getBody();
 
-        // Step 4: Initialize progress for users who do not have the BatchProgress for
-        // the given batchId
-        usersWithoutBatch.forEach(userId -> {
-            Progress progress = userProgressMap.getOrDefault(userId, new Progress());
-            if (progress.getUserId() == null) {
+        userIds.forEach(userId -> {
+            Progress progress = userProgressMap.get(userId);
+
+            if (progress == null) {
+                progress = new Progress();
                 progress.setUserId(userId);
+                progress.setBatches(new ArrayList<>());
             }
 
-            BatchProgress batchProgress = new BatchProgress();
-            batchProgress.setBatchId(batchId);
-            batchProgress.setOverallCompletionPercentage(0);
+            boolean batchExists = progress.getBatches().stream().anyMatch(bp -> bp.getBatchId().equals(batchId));
+            if (!batchExists) {
+                BatchProgress batchProgress = new BatchProgress();
+                batchProgress.setBatchId(batchId);
+                batchProgress.setOverallCompletionPercentage(0);
 
-            List<CourseProgress> courses = new ArrayList<>();
-            for (BatchCoursesDTO course : learningPlan.getBatchCourses()) {
-                CourseProgress courseProgress = new CourseProgress();
-                courseProgress.setCourseId(course.getCourseId());
-                courseProgress.setCompletionPercentage(0);
+                List<CourseProgress> courses = new ArrayList<>();
+                for (BatchCoursesDTO course : learningPlan.getBatchCourses()) {
+                    CourseProgress courseProgress = new CourseProgress();
+                    courseProgress.setCourseId(course.getCourseId());
+                    courseProgress.setCompletionPercentage(0);
 
-                List<TopicProgress> topics = new ArrayList<>();
-                for (BatchTopicDTO topic : course.getTopic()) {
-                    TopicProgress topicProgress = new TopicProgress();
-                    topicProgress.setTopicId(topic.getTopicId());
-                    topicProgress.setCompletionPercentage(0);
-                    topicProgress.setResources(new ArrayList<>()); // Assuming resource progress initialization is not
-                                                                   // needed
+                    List<TopicProgress> topics = new ArrayList<>();
+                    for (BatchTopicDTO topic : course.getTopic()) {
+                        TopicProgress topicProgress = new TopicProgress();
+                        topicProgress.setTopicId(topic.getTopicId());
+                        topicProgress.setCompletionPercentage(0);
+                        topicProgress.setResources(new ArrayList<>()); // to be added
 
-                    topics.add(topicProgress);
+                        topics.add(topicProgress);
+                    }
+
+                    courseProgress.setTopics(topics);
+                    courses.add(courseProgress);
                 }
 
-                courseProgress.setTopics(topics);
-                courses.add(courseProgress);
+                batchProgress.setCourses(courses);
+                progress.getBatches().add(batchProgress);
             }
-
-            batchProgress.setCourses(courses);
-            progress.getBatches().add(batchProgress);
 
             progressRepository.save(progress);
         });

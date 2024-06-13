@@ -114,7 +114,8 @@ public class UserProgressController {
     }
 
     // @GetMapping("/learning-plan/{batchId}")
-    // private ResponseEntity<LearningPlanDTO> getBatchLearningPlan(@PathVariable long batchId){
-    //     return ResponseEntity.ok(progressService.getBatchLearningPlan(batchId));
+    // private ResponseEntity<LearningPlanDTO> getBatchLearningPlan(@PathVariable
+    // long batchId){
+    // return ResponseEntity.ok(progressService.getBatchLearningPlan(batchId));
     // }
 }
