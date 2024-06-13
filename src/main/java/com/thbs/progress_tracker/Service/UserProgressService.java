@@ -306,4 +306,11 @@ public class UserProgressService {
         });
     }
 
+    public LearningPlanDTO getBatchLearningPlan(long batchId){
+        String uri = learningPlanModuleUri;
+        ResponseEntity<LearningPlanDTO> response = restTemplate.exchange(uri, HttpMethod.GET, null,
+                new ParameterizedTypeReference<LearningPlanDTO>() {
+                }, batchId);
+        return response.getBody();
+    }
 }
